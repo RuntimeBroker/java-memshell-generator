@@ -9,7 +9,7 @@
   <div align="center">一款支持高度自定义的 Java 内存马生成工具</div>
 </p>
 
-<img src="./jmg-docs/img/gui.png" width="900px" />
+<img src="./jmg-docs/img/gui_250101.png" width="900px" />
 
 <br>
 
@@ -20,16 +20,20 @@
 
 ## 功能
 
-| 中间件       | 框架            | 工具 (测试版本)                                                        | 内存马类型         | 输出格式       | 辅助模块    |
-|-----------|---------------|------------------------------------------------------------------|---------------|------------|---------|
-| Tomcat    | SpringMVC     | [AntSword](https://github.com/AntSwordProject/antSword) (2.1.15) | Listener      | BASE64     | 专项漏洞封装  |
-| Resin     | SpringWebFlux | [Behinder](https://github.com/rebeyond/Behinder) (4.0.7)         | Filter        | BCEL       | 表达式语句封装 |
-| WebLogic  |               | [Godzilla](https://github.com/BeichenDream/Godzilla) (4.0.1)     | Interceptor   | BIGINTEGER |         |
-| Jetty     |               | [Neo-reGeorg](https://github.com/L-codes/Neo-reGeorg) (5.1.0)    | HandlerMethod | CLASS      |         |
-| WebSphere |               | [Suo5](https://github.com/zema1/suo5) (0.9.0)                    | TomcatValve   | JAR        |         |
-| Undertow  |               | Custom                                                           |               | JAR_AGENT  |         |
-| GlassFish |               |                                                                  |               | JS         |         |
-|           |               |                                                                  |               | JSP        |         |
+| 中间件             | 框架          | 工具 (测试版本)                                              | 内存马类型    | 输出格式   | 辅助模块       |
+| ------------------ | ------------- | ------------------------------------------------------------ | ------------- | ---------- | -------------- |
+| Tomcat             | SpringMVC     | [AntSword](https://github.com/AntSwordProject/antSword) (2.1.15) | Listener      | BASE64     | 专项漏洞封装   |
+| Resin              | SpringWebFlux | [Behinder](https://github.com/rebeyond/Behinder) (4.0.7)     | Filter        | BCEL       | 表达式语句封装 |
+| WebLogic           |               | [Godzilla](https://github.com/BeichenDream/Godzilla) (4.0.1) | Interceptor   | BIGINTEGER |                |
+| Jetty              |               | [Neo-reGeorg](https://github.com/L-codes/Neo-reGeorg) (5.1.0) | HandlerMethod | CLASS      |                |
+| WebSphere          |               | [Suo5](https://github.com/zema1/suo5) (0.9.0)                | TomcatValve   | JAR        |                |
+| Undertow           |               | Custom                                                       |               | JAR_AGENT  |                |
+| GlassFish          |               |                                                              |               | JS         |                |
+| Apusic（金蝶）     |               |                                                              |               | JSP        |                |
+| BES（宝兰德）      |               |                                                              |               |            |                |
+| InforSuite（中创） |               |                                                              |               |            |                |
+| TongWeb（东方通）  |               |                                                              |               |            |                |
+|                    |               |                                                              |               |            |                |
 
 ## 编译
 
@@ -44,26 +48,26 @@ mvn package assembly:single
 **图形化**
 
 ```shell
-java -jar ./releases/jmg-gui-1.0.8.jar
+java -jar ./releases/jmg-gui-1.0.9.jar
 ```
 
 **命令行**
 
 ```shell
-java -jar ./releases/jmg-cli-1.0.8.jar
+java -jar ./releases/jmg-cli-1.0.9.jar
 ```
 
 **Woodpecker 插件**
 
-将 jmg-woodpecker-1.0.8.jar 添加到 woodpecker 插件目录
+将 jmg-woodpecker-1.0.9.jar 添加到 woodpecker 插件目录
 
 
 **第三方库 (Maven)**
 
-1.将 jmg-sdk-1.0.8.jar 安装到本地 maven 仓库
+1.将 jmg-sdk-1.0.9.jar 安装到本地 maven 仓库
 
 ```shell
-mvn install:install-file -Dfile=./releases/jmg-sdk-1.0.8.jar -DgroupId=jmg -DartifactId=jmg-sdk -Dversion=1.0.8 -Dpackaging=jar
+mvn install:install-file -Dfile=./releases/jmg-sdk-1.0.9.jar -DgroupId=jmg -DartifactId=jmg-sdk -Dversion=1.0.9 -Dpackaging=jar
 ```
 
 2.添加为依赖
@@ -72,7 +76,7 @@ mvn install:install-file -Dfile=./releases/jmg-sdk-1.0.8.jar -DgroupId=jmg -Dart
 <dependency>
     <groupId>jmg</groupId>
     <artifactId>jmg-sdk</artifactId>
-    <version>1.0.8</version>
+    <version>1.0.9</version>
 </dependency>
 ```
 

